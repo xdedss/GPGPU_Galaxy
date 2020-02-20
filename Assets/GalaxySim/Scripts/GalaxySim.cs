@@ -8,34 +8,10 @@ public static class GalaxySim
 {
     public struct BodyData
     {
-        //public static BodyData FromBody(CelestialBody body)
-        //{
-        //    var res = new BodyData();
-        //    res.x = body.position.x; res.y = body.position.y; res.z = body.position.z;
-        //    res.vx = body.velocity.x; res.vy = body.velocity.y; res.vz = body.velocity.z;
-        //    res.mass = body.mass;
-        //    res.volume = body.volume;
-        //    res.temp = body.temp;
-        //    res.stat = 0;
-        //    if (!body.exist) res.stat |= 1;
-        //    if (body.kinetic) res.stat |= 2;
-        //    return res;
-        //}
 
-        //public CelestialBody ToBody()
-        //{
-        //    if ((stat & 1) == 1) return null;
-        //    return new CelestialBody(new Vector3(x, y, z), new Vector3(vx, vy, vz), mass, volume, temp, ((stat >> 1) & 1) == 1);
-        //}
-
-        //public void ToBody(ref CelestialBody body)
-        //{
-        //    if ((stat & 1) == 1)
-        //    {
-        //        body = null; return;
-        //    }
-        //}
-
+        /// <summary>
+        /// (meters)
+        /// </summary>
         public Vector3 Position
         {
             get
@@ -47,6 +23,9 @@ public static class GalaxySim
                 x = value.x; y = value.y; z = value.z;
             }
         }
+        /// <summary>
+        /// (m/s)
+        /// </summary>
         public Vector3 Velocity
         {
             get
@@ -58,7 +37,13 @@ public static class GalaxySim
                 vx = value.x; vy = value.y; vz = value.z;
             }
         }
+        /// <summary>
+        /// (m^3)
+        /// </summary>
         public float Volume => radius * radius * radius * 4f / 3f * Mathf.PI;
+        /// <summary>
+        /// if set to false, this celestial body will be ignored
+        /// </summary>
         public bool Exists
         {
             get
@@ -70,6 +55,9 @@ public static class GalaxySim
                 if (value != Exists) stat ^= 1;
             }
         }
+        /// <summary>
+        /// if set to true, this celestial body will not reveive any force
+        /// </summary>
         public bool Kinetic
         {
             get
@@ -81,6 +69,9 @@ public static class GalaxySim
                 if (value != Kinetic) stat ^= 2;
             }
         }
+        /// <summary>
+        /// if set to true, this celestial body will only receive force and won't apply force to other bodies. Decreases complexity to O(n)
+        /// </summary>
         public bool Neglectable
         {
             get
@@ -101,6 +92,17 @@ public static class GalaxySim
         // 00000000 00000000 00000000 00000000
         //                                  ||deleted
         //                                  |novelocity
+        /// <summary>
+        /// Create a celestial body.
+        /// </summary>
+        /// <param name="position">position (meters)</param>
+        /// <param name="velocity">velocity (m/s)</param>
+        /// <param name="mass">mass (kilograms)</param>
+        /// <param name="radius">radius (meters)</param>
+        /// <param name="temp">temperature (K)</param>
+        /// <param name="neglectable">if set to true, this celestial body will only receive force and won't apply force to other bodies. Decreases complexity to O(n)</param>
+        /// <param name="kinetic">if set to true, this celestial body will not reveive any force</param>
+        /// <param name="exists">if set to false, this celestial body will be ignored</param>
         public BodyData(Vector3 position, Vector3 velocity, float mass, float radius, float temp = 0, bool neglectable = false, bool kinetic = false, bool exists = true)
         {
             x = position.x; y = position.y; z = position.z;
@@ -128,7 +130,12 @@ public static class GalaxySim
     private static BodyData[] data;
     private static bool dataChanged = true;
     private static bool reversed;
+    public static int Count => data == null ? 0 : data.Length;
 
+    /// <summary>
+    /// Setup the simulation using an array of celestial bodies
+    /// </summary>
+    /// <param name="bodies"></param>
     public static void SetupSimulation(BodyData[] bodies)
     {
         if (buffer1 != null) buffer1.Dispose();
@@ -160,12 +167,21 @@ public static class GalaxySim
         simShader.SetInt("firstNeglectable", firstNeglectable);
     }
 
+    /// <summary>
+    /// Modify the simulation with new data. 
+    /// </summary>
+    /// <param name="bodies"></param>
     public static void ModifySimulation(BodyData[] bodies)
     {
         (reversed ? buffer2 : buffer1).SetData(bodies);
         dataChanged = true;
     }
 
+    /// <summary>
+    /// Update 1 step
+    /// </summary>
+    /// <param name="deltaTime">(seconds)</param>
+    /// <param name="resetCollision">reset collision buffers</param>
     public static void UpdateSimulation(float deltaTime, bool resetCollision = true)
     {
 
@@ -181,6 +197,9 @@ public static class GalaxySim
         reversed ^= true;
     }
 
+    /// <summary>
+    /// Merge collided celestial bodies according to collision buffers
+    /// </summary>
     public static void UpdateCollision()
     {
         GetData(data);
@@ -232,13 +251,11 @@ public static class GalaxySim
                         else
                         {
                             Merge(ref data[i], ref data[me.collision]);
-                            //Debug.Log(data[me.collision].ToString());
                         }
                     }
                 }
             }
         }
-        //Debug.Log(data.Count(d => d.Exists));
         ModifySimulation(data);
         dataChanged = false;
     }
@@ -254,12 +271,17 @@ public static class GalaxySim
         res.y = (b1.y * b1.mass + b2.y * b2.mass) / res.mass;
         res.z = (b1.z * b1.mass + b2.z * b2.mass) / res.mass;
         res.radius = Mathf.Pow((b1.radius * b1.radius * b1.radius) + (b2.radius * b2.radius * b2.radius), 1.0f / 3.0f);
+        //todo: calculate temperature
+        //res.temp = 
         res.stat = b1.stat;
         b1 = res;
         b2.Exists = false;
-        //res.temp = 
     }
 
+    /// <summary>
+    /// Get data into buffer
+    /// </summary>
+    /// <param name="buffer"></param>
     public static void GetData(BodyData[] buffer)
     {
         if (dataChanged)
@@ -273,22 +295,3 @@ public static class GalaxySim
         }
     }
 }
-
-//public class CelestialBody
-//{
-//    public Vector3 position;
-//    public Vector3 velocity;
-//    public float mass, volume, temp;
-//    public bool exist, kinetic;
-
-//    public CelestialBody(Vector3 position, Vector3 velocity, float mass, float volume, float temp = 0, bool kinetic = false)
-//    {
-//        this.position = position;
-//        this.velocity = velocity;
-//        this.mass = mass;
-//        this.volume = volume;
-//        this.temp = temp;
-//        this.kinetic = kinetic;
-//        this.exist = true;
-//    }
-//}

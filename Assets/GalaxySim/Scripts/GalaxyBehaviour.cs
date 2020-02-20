@@ -6,13 +6,14 @@ using UnityEngine;
 
 public class GalaxyBehaviour : MonoBehaviour
 {
-    public GalaxySim.BodyData[] celestialBodies;
-    float renderScale = 1 / 149597870700f;
-    float renderSizeScale = 1;
-    public float timeStep = 0;
-    public int fixedStepCount = 0;
+    GalaxySim.BodyData[] celestialBodies;
+    public float timeStep; // seconds
+    public int fixedStepCount; // steps in 1 FixedUpdate
     double timeElapsed = 0;
+    bool useInstancing = true;
 
+    float renderScale = 1 / 149597870700f;// when rendering, 1 Au = 1 meter
+    float renderSizeScale = 1;
     public Mesh bodyMesh;
     public Mesh quad;
     public Material bodyMaterial;
@@ -22,24 +23,25 @@ public class GalaxyBehaviour : MonoBehaviour
 
     void Start()
     {
-        //unlit_white = Resources.Load<Material>("Materials/unlit_white");
-
         bodyMaterial.enableInstancing = true;
         hintMaterial.enableInstancing = true;
-        //Debug.Log(SystemInfo.supportsInstancing);
+        if (!SystemInfo.supportsComputeShaders)
+            Debug.LogError("Your system doesn't support compute shaders");
+        if (!SystemInfo.supportsInstancing)
+        {
+            useInstancing = false;
+            Debug.LogWarning("Your system doesn't support instancing");
+        }
+
+        // add new celestial bodies into this List!
         List<GalaxySim.BodyData> bodiesList = new List<GalaxySim.BodyData>();
         var sun = new GalaxySim.BodyData(new Vector3(0, 0, 0), new Vector3(0, 0, 0), 1.9891e30f, 6.955e8f, 6000, false, true);
+        var earth = new GalaxySim.BodyData(new Vector3(149597870700, 0, 0), new Vector3(0, 0, 29783), 5.965e24f * 1, 6371e3f, 300, false);
+        var jupiter = new GalaxySim.BodyData(new Vector3(816520800000, 0, 0), new Vector3(0, 0, 13070), 1.9e27f * 1, 71492e3f, 300, false);
         bodiesList.Add(sun);
-        bodiesList.Add(new GalaxySim.BodyData(new Vector3(149597870700, 0, 0), new Vector3(0, 0, 29783), 5.965e24f * 1, 6371e3f, 300, false));
-        bodiesList.Add(new GalaxySim.BodyData(new Vector3(816520800000, 0, 0), new Vector3(0, 0, 13070), 1.9e27f * 1, 71492e3f, 300, false));
-        //for (int i = 0; i < 1000; i++)
-        //{
-        //    float randomRadius = UnityEngine.Random.value * Mathf.PI * 2;
-        //    bodiesList.Add(new GalaxySim.BodyData(
-        //        new Vector3(Mathf.Cos(randomRadius), 0, Mathf.Sin(randomRadius)) * 149597870700 + new Vector3(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) * 149597870700 * 0.05f,
-        //        new Vector3(-Mathf.Sin(randomRadius), 0, Mathf.Cos(randomRadius)) * 29783 * 1f + new Vector3(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) * 297,
-        //        100000, 600, 300, true));
-        //}
+        bodiesList.Add(earth);
+        bodiesList.Add(jupiter);
+        //some random asteroids near jupiter orbit
         for (int i = 0; i < 1000; i++)
         {
             float randomRadius = UnityEngine.Random.value * Mathf.PI * 2;
@@ -47,34 +49,21 @@ public class GalaxyBehaviour : MonoBehaviour
             float orbitVel = Mathf.Sqrt(G * sun.mass / randomAltitude);
             float randomVelocity = UnityEngine.Random.Range(orbitVel * 0.8f, orbitVel * 1.0f);
             bodiesList.Add(new GalaxySim.BodyData(
-                new Vector3(Mathf.Cos(randomRadius), Mathf.Sin(randomRadius), 0) * randomAltitude + new Vector3(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) * randomAltitude * 0.05f,
-                new Vector3(-Mathf.Sin(randomRadius), Mathf.Cos(randomRadius), 0) * randomVelocity * 1f + new Vector3(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) * randomVelocity * 0.05f,
+                new Vector3(Mathf.Cos(randomRadius), 0, Mathf.Sin(randomRadius)) * randomAltitude + new Vector3(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) * randomAltitude * 0.05f,
+                new Vector3(-Mathf.Sin(randomRadius), 0, Mathf.Cos(randomRadius)) * randomVelocity * 1f + new Vector3(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) * randomVelocity * 0.05f,
                 100000, 600, 300, true));
         }
-        //bodiesList.Add(new GalaxySim.BodyData(
-        //    new Vector3(1, 0, 0) * 149597870700,
-        //    new Vector3(-5, 0, 0) * 29783 * 0.1f,
-        //    4e25f, 637100000 * 3, 300, false));
-        //bodiesList.Add(new GalaxySim.BodyData(
-        //    new Vector3(-1, 0, 0) * 149597870700,
-        //    new Vector3(0, 0, 0) * 29783 * 0.05f,
-        //    4e25f, 637100000 * 3, 300, false));
 
         celestialBodies = bodiesList.ToArray();
         GalaxySim.SetupSimulation(celestialBodies);
-        //foreach (var body in celestialBodies)
-        //{
-        //    Debug.Log(body.ToString());
-        //}
     }
     
     void Update()
     {
         GalaxySim.GetData(celestialBodies);
         RenderBodies();
-        //Graphics.DrawMeshInstanced(bodyMesh, 0, bodyMaterial, new Matrix4x4[] { Matrix4x4.identity });
 
-        if (Input.GetKey(KeyCode.T))
+        if (Input.GetKeyDown(KeyCode.T))
         {
             foreach (var body in celestialBodies)
             {
@@ -83,11 +72,11 @@ public class GalaxyBehaviour : MonoBehaviour
         }
         if (Input.GetKeyDown(KeyCode.S))
         {
-            IOUtil.SaveToFile(@"D:\LZR\Desktop\test.bodies", celestialBodies);
+            IOUtil.SaveToFile(System.IO.Path.Combine(System.Environment.CurrentDirectory, "savedBodies.bin"), celestialBodies);
         }
         if (Input.GetKeyDown(KeyCode.L))
         {
-            var objArray = IOUtil.LoadFromFile(@"D:\LZR\Desktop\test.bodies", typeof(GalaxySim.BodyData));
+            var objArray = IOUtil.LoadFromFile(System.IO.Path.Combine(System.Environment.CurrentDirectory, "savedBodies.bin"), typeof(GalaxySim.BodyData));
             celestialBodies = new GalaxySim.BodyData[objArray.Length];
             for (int i = 0; i < objArray.Length; i++)
             {
@@ -112,7 +101,7 @@ public class GalaxyBehaviour : MonoBehaviour
     void OnGUI()
     {
         GUI.Label(new Rect(0, 0, 150, 30), 
-            string.Format("{0} days, {1} ", (timeElapsed / 86400), celestialBodies.Count(b => b.Exists))
+            string.Format("{0:0.00} years, {1} ", (timeElapsed / 86400 / 365), celestialBodies.Count(b => b.Exists))
             );
     }
 
@@ -164,18 +153,32 @@ public class GalaxyBehaviour : MonoBehaviour
                 }
             }
             //Debug.LogWarning("Draw" + (Lod0ToDraw.Count + Lod1ToDraw.Count) + "=" + Lod0ToDraw.Count + "+" + Lod1ToDraw.Count);
-            while (Lod0ToDraw.Count > 1023)
+            if (useInstancing)
             {
-                Graphics.DrawMeshInstanced(quad, 0, bodyMaterial, Lod0ToDraw.GetRange(0, 1023));
-                Lod0ToDraw.RemoveRange(0, 1023);
+                while (Lod0ToDraw.Count > 1023)
+                {
+                    Graphics.DrawMeshInstanced(quad, 0, bodyMaterial, Lod0ToDraw.GetRange(0, 1023));
+                    Lod0ToDraw.RemoveRange(0, 1023);
+                }
+                Graphics.DrawMeshInstanced(quad, 0, bodyMaterial, Lod0ToDraw);
+                while (Lod1ToDraw.Count > 1023)
+                {
+                    Graphics.DrawMeshInstanced(bodyMesh, 0, bodyMaterial, Lod1ToDraw.GetRange(0, 1023));
+                    Lod1ToDraw.RemoveRange(0, 1023);
+                }
+                Graphics.DrawMeshInstanced(bodyMesh, 0, bodyMaterial, Lod1ToDraw);
             }
-            Graphics.DrawMeshInstanced(quad, 0, bodyMaterial, Lod0ToDraw);
-            while (Lod1ToDraw.Count > 1023)
+            else
             {
-                Graphics.DrawMeshInstanced(bodyMesh, 0, bodyMaterial, Lod1ToDraw.GetRange(0, 1023));
-                Lod1ToDraw.RemoveRange(0, 1023);
+                foreach (var m in Lod0ToDraw)
+                {
+                    Graphics.DrawMesh(quad, m, bodyMaterial, 0);
+                }
+                foreach (var m in Lod1ToDraw)
+                {
+                    Graphics.DrawMesh(bodyMesh, m, bodyMaterial, 0);
+                }
             }
-            Graphics.DrawMeshInstanced(bodyMesh, 0, bodyMaterial, Lod1ToDraw);
             foreach (var pair in SingleDraw)
             {
                 Graphics.DrawMesh(bodyMesh, pair.Item1, pair.Item2, 0);
