@@ -223,6 +223,9 @@ MonoBehaviour:
   quad: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
   bodyMaterial: {fileID: 2100000, guid: 8f7aa2b3fe9f8494f94d8f237b951ebd, type: 2}
   hintMaterial: {fileID: 2100000, guid: 024a9cd63b5ae434bae94f7ae9f6aebe, type: 2}
+  follow: 0
+  followDistance: 0.3
+  followIndex: 2
 --- !u!1 &1005673598
 GameObject:
   m_ObjectHideFlags: 0

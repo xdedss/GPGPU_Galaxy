@@ -19,6 +19,12 @@ public class GalaxyBehaviour : MonoBehaviour
     public Material bodyMaterial;
     public Material hintMaterial;
 
+    [Space]
+    public bool follow;
+    public float followDistance;
+    public int followIndex;
+
+
     const float G = 6.67259e-11f;
 
     void Start()
@@ -44,12 +50,12 @@ public class GalaxyBehaviour : MonoBehaviour
         for (int i = 0; i < 1000; i++)
         {
             float randomRadius = UnityEngine.Random.value * Mathf.PI * 2;
-            float randomAltitude = UnityEngine.Random.Range(0.9f * 816520800000, 1.2f * 816520800000);
+            float randomAltitude = UnityEngine.Random.Range(0.95f * 816520800000, 1.1f * 816520800000);
             float orbitVel = Mathf.Sqrt(G * sun.mass / randomAltitude);
-            float randomVelocity = UnityEngine.Random.Range(orbitVel * 0.8f, orbitVel * 1.0f);
+            float randomVelocity = UnityEngine.Random.Range(orbitVel * 0.98f, orbitVel * 1.02f);
             bodiesList.Add(new GalaxySim.BodyData(
-                new Vector3(Mathf.Cos(randomRadius), 0, Mathf.Sin(randomRadius)) * randomAltitude + new Vector3(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) * randomAltitude * 0.05f,
-                new Vector3(-Mathf.Sin(randomRadius), 0, Mathf.Cos(randomRadius)) * randomVelocity * 1f + new Vector3(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value) * randomVelocity * 0.05f,
+                new Vector3(Mathf.Cos(randomRadius), (-1 + 2 * UnityEngine.Random.value) * 0.1f, Mathf.Sin(randomRadius)) * randomAltitude,
+                new Vector3(-Mathf.Sin(randomRadius), 0, Mathf.Cos(randomRadius)) * randomVelocity * 1f,
                 100000, 600, 300, true));
         }
 
@@ -60,6 +66,7 @@ public class GalaxyBehaviour : MonoBehaviour
     void Update()
     {
         GalaxySim.GetData(celestialBodies);
+        Follow();
         RenderBodies();
 
         if (Input.GetKeyDown(KeyCode.T))
@@ -189,6 +196,16 @@ public class GalaxyBehaviour : MonoBehaviour
     {
         if (body.mass > 5e24f) return hintMaterial;
         return null;
+    }
+
+    void Follow()
+    {
+        if (follow && followIndex >= 0 && followIndex < celestialBodies.Length)
+        {
+            var pos = celestialBodies[followIndex].Position * renderScale;
+            transform.LookAt(pos);
+            transform.Translate(new Vector3(0, 0, (pos - transform.position).magnitude - followDistance));
+        }
     }
 
     bool SanityCheck(Vector3 renderPos, float renderScale)
