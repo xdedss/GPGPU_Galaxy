@@ -27,24 +27,24 @@ bool resetCollision;
 RWStructuredBuffer<Body> Data1;
 RWStructuredBuffer<Body> Data2;
 
-bool SanityCheck(Body me) {
-	return !(isnan(me.x) || isnan(me.y) || isnan(me.z) || isnan(me.vx) || isnan(me.vy) || isnan(me.vz) || isnan(me.mass) || isnan(me.radius));
-}
-
-Body Merge(Body b1, Body b2) {
-	Body res;
-	res.mass = b1.mass + b2.mass;
-	res.vx = (b1.vx * b1.mass + b2.vx * b2.mass) / res.mass;
-	res.vy = (b1.vy * b1.mass + b2.vy * b2.mass) / res.mass;
-	res.vz = (b1.vz * b1.mass + b2.vz * b2.mass) / res.mass;
-	res.x = (b1.x * b1.mass + b2.x * b2.mass) / res.mass;
-	res.y = (b1.y * b1.mass + b2.y * b2.mass) / res.mass;
-	res.z = (b1.z * b1.mass + b2.z * b2.mass) / res.mass;
-	res.radius = pow(abs(b1.radius * b1.radius * b1.radius) + abs(b2.radius * b2.radius * b2.radius), 1.0 / 3.0);
-	res.stat = b1.stat;
-	//res.temp = 
-	return res;
-}
+//bool SanityCheck(Body me) {
+//	return !(isnan(me.x) || isnan(me.y) || isnan(me.z) || isnan(me.vx) || isnan(me.vy) || isnan(me.vz) || isnan(me.mass) || isnan(me.radius));
+//}
+//
+//Body Merge(Body b1, Body b2) {
+//	Body res;
+//	res.mass = b1.mass + b2.mass;
+//	res.vx = (b1.vx * b1.mass + b2.vx * b2.mass) / res.mass;
+//	res.vy = (b1.vy * b1.mass + b2.vy * b2.mass) / res.mass;
+//	res.vz = (b1.vz * b1.mass + b2.vz * b2.mass) / res.mass;
+//	res.x = (b1.x * b1.mass + b2.x * b2.mass) / res.mass;
+//	res.y = (b1.y * b1.mass + b2.y * b2.mass) / res.mass;
+//	res.z = (b1.z * b1.mass + b2.z * b2.mass) / res.mass;
+//	res.radius = pow(abs(b1.radius * b1.radius * b1.radius) + abs(b2.radius * b2.radius * b2.radius), 1.0 / 3.0);
+//	res.stat = b1.stat;
+//	//res.temp = 
+//	return res;
+//}
 
 Body Interact(Body me, Body subject, int subjectId) {
 	float xd, yd, zd, r2, r, dv;
@@ -52,37 +52,8 @@ Body Interact(Body me, Body subject, int subjectId) {
 		float xd = me.x - subject.x, yd = me.y - subject.y, zd = me.z - subject.z;
 		float r2 = sqr(xd) + sqr(yd) + sqr(zd);
 		float r = sqrt(r2);
-		//bool meKinetic = isKinetic(me.stat);
-		//bool subjectKinetic = isKinetic(subject.stat);
 		if (r < (me.radius + subject.radius)) {//collision
 			me.collision = subjectId;
-			//if (meKinetic) {
-			//	if (subjectKinetic) {
-			//		// nothing happens
-			//	}
-			//	else {
-			//		return Merge(me, subject);
-			//	}
-			//}
-			//else {
-			//	if (subjectKinetic) {
-			//		me.stat |= 1;
-			//		me.x = 0; me.y = 0; me.z = 0;
-			//		me.vx = 0; me.vy = 0; me.vz = 0;
-			//		return me;
-			//	}
-			//	else {
-			//		if (supreme) {
-			//			return Merge(me, subject);
-			//		}
-			//		else {
-			//			me.stat |= 1;
-			//			me.x = 0; me.y = 0; me.z = 0;
-			//			me.vx = 0; me.vy = 0; me.vz = 0;
-			//			return me;
-			//		}
-			//	}
-			//}
 		}
 		else {
 			dv = G * subject.mass / r2 * dt;
@@ -100,14 +71,12 @@ void Cal (uint3 id : SV_DispatchThreadID)
 	uint i;
 	Body me;
 	if (id.x >= (uint)bodyCount) return;
-	//Data2[id.x].stat |= 1 << 15;
 	if (reversed) {
 		me = Data2[id.x];
 		if (!isInvalid(me.stat)) {
 			if (resetCollision) me.collision = -1;
 			if (!isKinetic(me.stat)) {
-				//bool meNeglectable = isNeglectable(me.stat);
-				for (i = 0; i < firstNeglectable; i++) {
+				for (i = 0; i < (uint)firstNeglectable; i++) {
 					if (i != id.x) {
 						me = Interact(me, Data2[i], i);
 					}
@@ -124,8 +93,7 @@ void Cal (uint3 id : SV_DispatchThreadID)
 		if (!isInvalid(me.stat)) {
 			if (resetCollision) me.collision = -1;
 			if (!isKinetic(me.stat)) {
-				//bool meNeglectable = isNeglectable(me.stat);
-				for (i = 0; i < firstNeglectable; i++) {
+				for (i = 0; i < (uint)firstNeglectable; i++) {
 					if (i != id.x) {
 						me = Interact(me, Data1[i], i);
 					}

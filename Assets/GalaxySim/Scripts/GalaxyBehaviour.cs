@@ -25,8 +25,7 @@ public class GalaxyBehaviour : MonoBehaviour
     {
         bodyMaterial.enableInstancing = true;
         hintMaterial.enableInstancing = true;
-        if (!SystemInfo.supportsComputeShaders)
-            Debug.LogError("Your system doesn't support compute shaders");
+        if (!SystemInfo.supportsComputeShaders) Debug.LogError("Your system doesn't support compute shaders");
         if (!SystemInfo.supportsInstancing)
         {
             useInstancing = false;
