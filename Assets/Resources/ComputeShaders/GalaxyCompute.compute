@@ -1,0 +1,146 @@
+﻿#pragma kernel Cal
+#pragma kernel Draw
+#define G 6.67259e-11
+#define PI 3.1415926535898
+#define isInvalid(x) ((x) & 1 == 1)
+#define isKinetic(x) (((x) >> 1) & 1 == 1)
+#define isNeglectable(x) (((x) >> 2) & 1 == 1)
+#define sqr(x) ((x)*(x))
+#define getVolume(x) (pow((x), 3)*4.0/3.0*PI)
+
+struct Body {
+	float x, y, z;
+	float vx, vy, vz;
+	float mass, radius, temp;
+	int collision;
+	int stat;
+	// 00000000 00000000 00000000 00000000
+	//                                  ||deleted
+	//                                  |novelocity
+};
+
+int bodyCount;
+int firstNeglectable;
+float dt;
+bool reversed;
+bool resetCollision;
+RWStructuredBuffer<Body> Data1;
+RWStructuredBuffer<Body> Data2;
+
+bool SanityCheck(Body me) {
+	return !(isnan(me.x) || isnan(me.y) || isnan(me.z) || isnan(me.vx) || isnan(me.vy) || isnan(me.vz) || isnan(me.mass) || isnan(me.radius));
+}
+
+Body Merge(Body b1, Body b2) {
+	Body res;
+	res.mass = b1.mass + b2.mass;
+	res.vx = (b1.vx * b1.mass + b2.vx * b2.mass) / res.mass;
+	res.vy = (b1.vy * b1.mass + b2.vy * b2.mass) / res.mass;
+	res.vz = (b1.vz * b1.mass + b2.vz * b2.mass) / res.mass;
+	res.x = (b1.x * b1.mass + b2.x * b2.mass) / res.mass;
+	res.y = (b1.y * b1.mass + b2.y * b2.mass) / res.mass;
+	res.z = (b1.z * b1.mass + b2.z * b2.mass) / res.mass;
+	res.radius = pow(abs(b1.radius * b1.radius * b1.radius) + abs(b2.radius * b2.radius * b2.radius), 1.0 / 3.0);
+	res.stat = b1.stat;
+	//res.temp = 
+	return res;
+}
+
+Body Interact(Body me, Body subject, int subjectId) {
+	float xd, yd, zd, r2, r, dv;
+	if (!isInvalid(subject.stat)) {
+		float xd = me.x - subject.x, yd = me.y - subject.y, zd = me.z - subject.z;
+		float r2 = sqr(xd) + sqr(yd) + sqr(zd);
+		float r = sqrt(r2);
+		//bool meKinetic = isKinetic(me.stat);
+		//bool subjectKinetic = isKinetic(subject.stat);
+		if (r < (me.radius + subject.radius)) {//collision
+			me.collision = subjectId;
+			//if (meKinetic) {
+			//	if (subjectKinetic) {
+			//		// nothing happens
+			//	}
+			//	else {
+			//		return Merge(me, subject);
+			//	}
+			//}
+			//else {
+			//	if (subjectKinetic) {
+			//		me.stat |= 1;
+			//		me.x = 0; me.y = 0; me.z = 0;
+			//		me.vx = 0; me.vy = 0; me.vz = 0;
+			//		return me;
+			//	}
+			//	else {
+			//		if (supreme) {
+			//			return Merge(me, subject);
+			//		}
+			//		else {
+			//			me.stat |= 1;
+			//			me.x = 0; me.y = 0; me.z = 0;
+			//			me.vx = 0; me.vy = 0; me.vz = 0;
+			//			return me;
+			//		}
+			//	}
+			//}
+		}
+		else {
+			dv = G * subject.mass / r2 * dt;
+			me.vx += -xd / r * dv;
+			me.vy += -yd / r * dv;
+			me.vz += -zd / r * dv;
+		}
+	}
+	return me;
+}
+
+[numthreads(64,1,1)]
+void Cal (uint3 id : SV_DispatchThreadID)
+{
+	uint i;
+	Body me;
+	if (id.x >= (uint)bodyCount) return;
+	//Data2[id.x].stat |= 1 << 15;
+	if (reversed) {
+		me = Data2[id.x];
+		if (!isInvalid(me.stat)) {
+			if (resetCollision) me.collision = -1;
+			if (!isKinetic(me.stat)) {
+				//bool meNeglectable = isNeglectable(me.stat);
+				for (i = 0; i < firstNeglectable; i++) {
+					if (i != id.x) {
+						me = Interact(me, Data2[i], i);
+					}
+				}
+			}
+			me.x += me.vx * dt;
+			me.y += me.vy * dt;
+			me.z += me.vz * dt;
+		}
+		Data1[id.x] = me;
+	}
+	else {
+		me = Data1[id.x];
+		if (!isInvalid(me.stat)) {
+			if (resetCollision) me.collision = -1;
+			if (!isKinetic(me.stat)) {
+				//bool meNeglectable = isNeglectable(me.stat);
+				for (i = 0; i < firstNeglectable; i++) {
+					if (i != id.x) {
+						me = Interact(me, Data1[i], i);
+					}
+				}
+			}
+			me.x += me.vx * dt;
+			me.y += me.vy * dt;
+			me.z += me.vz * dt;
+		}
+		Data2[id.x] = me;
+	}
+}
+
+[numthreads(64, 1, 1)]
+void Draw(uint3 id : SV_DispatchThreadID)
+{
+
+}
